@@ -1,108 +1,133 @@
-#include "cv.h" 
-#include "highgui.h"
-
-#include <stdio.h> 
-#include <stdlib.h> 
-#include <string.h> 
-#include <assert.h> 
-#include <math.h> 
-#include <float.h> 
-#include <limits.h> 
-#include <time.h> 
-#include <ctype.h>
-
-#ifdef _EiC 
-#define WIN32 
-#endif
-
-static CvMemStorage* storage = 0;
-static CvHaarClassifierCascade* cascade = 0;
-
-void detect_and_draw(IplImage* image);
-
-const char* cascade_name =
-"haarcascade_frontalface_alt.xml";
-/*    "haarcascade_profileface.xml";*/
+#include <cv.h>
+#include <cxcore.h>
+#include <highgui.h>
 
 int main(int argc, char** argv)
 {
-	cascade_name = "haarcascade_frontalface_alt2.xml";
-	cascade = (CvHaarClassifierCascade*)cvLoad(cascade_name, 0, 0, 0);
+	//声明IplImage指针
+	IplImage* pFrame = NULL;
+	IplImage* pFrImg = NULL;
+	IplImage* pBkImg = NULL;
 
-	if (!cascade)
+	CvMat* pFrameMat = NULL;
+	CvMat* pFrMat = NULL;
+	CvMat* pBkMat = NULL;
+
+	CvCapture* pCapture = NULL;
+	//
+
+	int nFrmNum = 0;
+
+	//创建窗口
+	cvNamedWindow("video", 1);
+	cvNamedWindow("background", 1);
+	cvNamedWindow("foreground", 1);
+	//使窗口有序排列
+	cvMoveWindow("video", 30, 0);
+	cvMoveWindow("background", 360, 0);
+	cvMoveWindow("foreground", 690, 0);
+
+
+
+	if (argc > 2)
 	{
-		fprintf(stderr, "ERROR: Could not load classifier cascade\n");
+		fprintf(stderr, "Usage: bkgrd [video_file_name]\n");
 		return -1;
 	}
-	storage = cvCreateMemStorage(0);
-	cvNamedWindow("result", 1);
 
-	const char* filename = "pp.jpg";
-	IplImage* image = cvLoadImage(filename, 1);
-
-	if (image)
+	//打开摄像头
+	if (argc == 1)
+	if (!(pCapture = cvCaptureFromCAM(0)))
 	{
-		detect_and_draw(image);
-		cvWaitKey(0);
-		cvReleaseImage(&image);
+		fprintf(stderr, "Can not open camera.\n");
+		return -2;
 	}
 
-	cvDestroyWindow("result");
+	//打开视频文件
+	if (argc == 2)
+	if (!(pCapture = cvCaptureFromFile(argv[1])))
+	{
+		fprintf(stderr, "Can not open video file %s\n", argv[1]);
+		return -2;
+	}
+
+	//逐帧读取视频
+	while (pFrame = cvQueryFrame(pCapture))
+	{
+		nFrmNum++;
+
+		//如果是第一帧，需要申请内存，并初始化
+		if (nFrmNum == 1)
+		{
+			pBkImg = cvCreateImage(cvSize(pFrame->width, pFrame->height), IPL_DEPTH_8U, 1);
+			pFrImg = cvCreateImage(cvSize(pFrame->width, pFrame->height), IPL_DEPTH_8U, 1);
+
+			pBkMat = cvCreateMat(pFrame->height, pFrame->width, CV_32FC1);
+			pFrMat = cvCreateMat(pFrame->height, pFrame->width, CV_32FC1);
+			pFrameMat = cvCreateMat(pFrame->height, pFrame->width, CV_32FC1);
+
+			//转化成单通道图像再处理
+			cvCvtColor(pFrame, pBkImg, CV_BGR2GRAY);
+			cvCvtColor(pFrame, pFrImg, CV_BGR2GRAY);
+
+			cvConvert(pFrImg, pFrameMat);
+			cvConvert(pFrImg, pFrMat);
+			cvConvert(pFrImg, pBkMat);
+		}
+		else
+		{
+			cvCvtColor(pFrame, pFrImg, CV_BGR2GRAY);
+			cvConvert(pFrImg, pFrameMat);
+			//高斯滤波先，以平滑图像
+			//cvSmooth(pFrameMat, pFrameMat, CV_GAUSSIAN, 3, 0, 0);
+
+			//当前帧跟背景图相减
+			cvAbsDiff(pFrameMat, pBkMat, pFrMat);
+
+			//二值化前景图
+			cvThreshold(pFrMat, pFrImg, 60, 255.0, CV_THRESH_BINARY);
+
+			//进行形态学滤波，去掉噪音  
+			//cvErode(pFrImg, pFrImg, 0, 1);
+			//cvDilate(pFrImg, pFrImg, 0, 1);
+
+			//更新背景
+			cvRunningAvg(pFrameMat, pBkMat, 0.003, 0);
+			//将背景转化为图像格式，用以显示
+			cvConvert(pBkMat, pBkImg);
+
+			//显示图像
+			cvShowImage("video", pFrame);
+			cvShowImage("background", pBkImg);
+			cvShowImage("foreground", pFrImg);
+
+			//如果有按键事件，则跳出循环
+			//此等待也为cvShowImage函数提供时间完成显示
+			//等待时间可以根据CPU速度调整
+			if (cvWaitKey(2) >= 0)
+				break;
+
+
+		}
+
+	}
+
+
+
+
+	//销毁窗口
+	cvDestroyWindow("video");
+	cvDestroyWindow("background");
+	cvDestroyWindow("foreground");
+
+	//释放图像和矩阵
+	cvReleaseImage(&pFrImg);
+	cvReleaseImage(&pBkImg);
+
+	cvReleaseMat(&pFrameMat);
+	cvReleaseMat(&pFrMat);
+	cvReleaseMat(&pBkMat);
+	cvReleaseCapture(&pCapture);
 
 	return 0;
-}
-
-
-void detect_and_draw(IplImage* img)
-{
-	double scale = 1.2;
-	static CvScalar colors[] = {
-		{ { 0, 0, 255 } }, { { 0, 128, 255 } }, { { 0, 255, 255 } }, { { 0, 255, 0 } },
-		{ { 255, 128, 0 } }, { { 255, 255, 0 } }, { { 255, 0, 0 } }, { { 255, 0, 255 } }
-	};//Just some pretty colors to draw with
-
-	//Image Preparation 
-	// 
-	IplImage* gray = cvCreateImage(cvSize(img->width, img->height), 8, 1);
-	IplImage* small_img = cvCreateImage(cvSize(cvRound(img->width / scale), cvRound(img->height / scale)), 8, 1);
-	cvCvtColor(img, gray, CV_BGR2GRAY);
-	cvResize(gray, small_img, CV_INTER_LINEAR);
-
-	cvEqualizeHist(small_img, small_img); //直方图均衡
-
-	//Detect objects if any 
-	// 
-	cvClearMemStorage(storage);
-	double t = (double)cvGetTickCount();
-	CvSeq* objects = cvHaarDetectObjects(small_img,
-		cascade,
-		storage,
-		1.1,
-		2,
-		0/*CV_HAAR_DO_CANNY_PRUNING*/,
-		cvSize(30, 30));
-
-	t = (double)cvGetTickCount() - t;
-	printf("detection time = %gms\n", t / ((double)cvGetTickFrequency()*1000.));
-
-	//Loop through found objects and draw boxes around them 
-	for (int i = 0; i<(objects ? objects->total : 0); ++i)
-	{
-		CvRect* r = (CvRect*)cvGetSeqElem(objects, i);
-		cvRectangle(img, cvPoint(r->x*scale, r->y*scale), cvPoint((r->x + r->width)*scale, (r->y + r->height)*scale), colors[i % 8]);
-	}
-	for (int i = 0; i < (objects ? objects->total : 0); i++)
-	{
-		CvRect* r = (CvRect*)cvGetSeqElem(objects, i);
-		CvPoint center;
-		int radius;
-		center.x = cvRound((r->x + r->width*0.5)*scale);
-		center.y = cvRound((r->y + r->height*0.5)*scale);
-		radius = cvRound((r->width + r->height)*0.25*scale);
-		cvCircle(img, center, radius, colors[i % 8], 3, 8, 0);
-	}
-
-	cvShowImage("result", img);
-	cvReleaseImage(&gray);
-	cvReleaseImage(&small_img);
 }
