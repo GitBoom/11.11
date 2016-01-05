@@ -34,12 +34,12 @@ int nFrmNum = 0;//帧计数
 int status = 0; //状态标志位
 
 //创建窗口
-cvNamedWindow("video", 1);
-cvNamedWindow("background",1);//背景
-cvNamedWindow("foreground",1);//前景
+cvNamedWindow("video", 0);
+cvNamedWindow("background",0);//背景
+//cvNamedWindow("foreground",1);//前景
 //使窗口有序排列
-cvMoveWindow("video", 30, 0);
-cvMoveWindow("background", 360, 0);
+cvMoveWindow("video", 400, 50);
+cvMoveWindow("background", 800, 50);
 cvMoveWindow("foreground", 690, 0);
 
 if ( argc > 2 )
@@ -115,7 +115,7 @@ cvConvert(pFrMat, pFrImgTran);
 //显示图像
 cvShowImage("video", pFrame);
 cvShowImage("background", pBkImgTran); //显示背景
-cvShowImage("foreground", pFrImgTran); //显示前景
+//cvShowImage("foreground", pFrImgTran); //显示前景
 
 
 //以上是每抓取一帧都要做的工作，下面进行危险检测
@@ -127,7 +127,7 @@ status = 1; //继续采集第2帧
 }
 else if (cvCountNonZero(pFrMatB) < 10000 && status == 1) // 表示第一帧的异物大于1W个像数点，而第二帧没有,则报警
 {
-printf("NO.%d warning!!!!/n/n",warningNum++);
+printf("NO.%d 有人!!/n/n",warningNum++);
 
 status = 0;
 }
@@ -140,7 +140,7 @@ cvAbsDiff(bg1, bg2, pZeroMat);
 cvThreshold(pZeroMat,pZeroMatB, 20, 1, CV_THRESH_BINARY);
 if (cvCountNonZero(pZeroMatB) > 3000 ) //表示他们不连续，这样的话要报警
 {
-printf("NO.%d warning!!!!/n/n",warningNum++);
+printf("NO.%d 有人!!/n/n",warningNum++);
 status = 0;
 }
 else

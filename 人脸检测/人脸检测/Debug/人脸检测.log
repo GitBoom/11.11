@@ -1,4 +1,4 @@
-﻿生成启动时间为 2015/11/25 14:47:46。
+﻿生成启动时间为 2016/1/5 11:33:58。
      1>项目“F:\github\作业\11.11\人脸检测\人脸检测\人脸检测.vcxproj”在节点 2 上(Build 个目标)。
      1>ClCompile:
          D:\实用\vc2013\VC\bin\CL.exe /c /ZI /nologo /W3 /WX- /sdl /Od /Oy- /D WIN32 /D _DEBUG /D _CONSOLE /D _LIB /D _CRT_SECURE_NO_WARNINGS /D _UNICODE /D UNICODE /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Debug\\" /Fd"Debug\vc120.pdb" /Gd /TP /analyze- /errorReport:prompt "源.cpp"
@@ -11,4 +11,4 @@
 
 生成成功。
 
-已用时间 00:00:10.15
+已用时间 00:00:04.04
